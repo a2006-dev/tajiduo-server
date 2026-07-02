@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TajiDuo · 管理后台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#c8d6e5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;min-height:100vh}
+.container{max-width:1400px;margin:0 auto;padding:16px 20px}
+
+/* 登录 */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login-box{background:#111827;border:1px solid #1e293b;border-radius:12px;padding:32px;width:340px}
+.login-box h2{color:#e2e8f0;font-size:18px;margin-bottom:20px;text-align:center}
+.login-box input{width:100%;background:#0a0e1a;border:1px solid #1e293b;color:#e2e8f0;padding:10px 14px;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px;transition:border-color .2s}
+.login-box input:focus{border-color:#6366f1}
+.login-box .btn{width:100%;padding:10px;border-radius:8px;font-size:14px;cursor:pointer;transition:all .2s}
+
+/* 头部 */
+.header{display:flex;justify-content:space-between;align-items:center;padding:12px 0 16px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.header h1{color:#e2e8f0;font-size:20px;font-weight:600}
+.header h1 span{color:#6366f1}
+.header .sub{color:#64748b;font-size:11px;margin-top:2px}
+.header-actions{display:flex;gap:8px}
+
+/* 统计卡片 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:#111827;border:1px solid #1e293b;border-radius:10px;padding:14px 16px}
+.stat .l{color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat .v{color:#e2e8f0;font-size:22px;font-weight:600}
+.stat .v.gold{color:#f59e0b}
+.stat .v.purple{color:#818cf8}
+.stat .v.green{color:#22c55e}
+.stat .v.cyan{color:#22d3ee}
+.stat .s{color:#475569;font-size:10px;margin-top:2px}
+
+/* 卡片 */
+.card{background:#111827;border:1px solid #1e293b;border-radius:10px;margin-bottom:12px}
+.card-h{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.card-b{padding:12px 14px;overflow-x:auto}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.3px;padding:6px 10px;border-bottom:1px solid #1e293b;font-weight:400;white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid #0f172a;color:#c8d6e5}
+tr:hover td{background:#0f172a}
+
+/* 按钮 */
+.btn{background:transparent;border:1px solid #1e293b;color:#94a3b8;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;transition:all .15s;font-family:inherit}
+.btn:hover{border-color:#6366f1;color:#e2e8f0}
+.btn-p{border-color:#6366f1;color:#818cf8}
+.btn-p:hover{background:#6366f1;color:#fff}
+.btn-r{border-color:#7f1d1d;color:#ef4444}
+.btn-r:hover{border-color:#ef4444;background:#1a0a0a}
+.btn-g{border-color:#166534;color:#22c55e}
+.btn-g:hover{border-color:#22c55e;background:#0a1a10}
+
+/* 标签 */
+.tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px}
+.tag-g{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
+.tag-r{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2)}
+.tag-y{background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.2)}
+
+.toast{position:fixed;bottom:20px;right:20px;background:#111827;border:1px solid #1e293b;border-radius:8px;padding:10px 16px;color:#e2e8f0;font-size:12px;display:none;z-index:200}
+.toast.show{display:block;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+input[type=text],input[type=password]{background:#0a0e1a;border:1px solid #1e293b;color:#e2e8f0;padding:6px 10px;border-radius:6px;font-size:12px;outline:none;font-family:inherit}
+input:focus{border-color:#6366f1}
+
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.w-full{width:100%}
+.gap-sm{gap:6px}
+.mt-sm{margin-top:6px}
+.mb-sm{margin-bottom:6px}
+.text-muted{color:#64748b}
+.text-sm{font-size:11px}
+</style>
+</head>
+<body>
+
+<div class="login-wrap" id="loginWrap">
+<div class="login-box">
+<h2>🔐 TajiDuo 管理</h2>
+<input type="password" id="pwd" placeholder="管理密码" autofocus onkeydown="if(event.key==='Enter') login()">
+<button class="btn btn-p w-full" onclick="login()" style="padding:10px;font-size:14px">登 录</button>
+</div>
+</div>
+
+<div id="dash" style="display:none">
+<div class="container">
+<div class="header">
+<div>
+<h1>TajiDuo <span>//</span> 管理后台</h1>
+<div class="sub" id="meta">加载中...</div>
+</div>
+<div class="header-actions">
+<button class="btn" onclick="loadAll()">⟳ 刷新</button>
+<button class="btn btn-r" onclick="logout()">退出</button>
+</div>
+</div>
+
+<div class="stats" id="statsGrid"></div>
+
+<div class="card">
+<div class="card-h"><span>API Keys</span><button class="btn btn-g" onclick="addKey()">+ 生成</button></div>
+<div class="card-b"><table><thead><tr><th>名称</th><th>Key</th><th>状态</th><th>请求</th><th>绑定</th><th>最后使用</th><th>操作</th></tr></thead><tbody id="keysBody"></tbody></table></div>
+</div>
+
+<div class="card">
+<div class="card-h"><span>Token 保活</span><span class="text-muted text-sm" id="fwtCount">0 在线</span></div>
+<div class="card-b"><table><thead><tr><th>游戏UID</th><th>虎牙ID</th><th>FWT</th><th>最后刷新</th></tr></thead><tbody id="fwtBody"></tbody></table></div>
+</div>
+
+<div class="card">
+<div class="card-h"><span>📢 即时通知</span></div>
+<div class="card-b">
+<div class="flex">
+<input type="text" id="noticeInput" placeholder="输入通知内容，按回车发送..." style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter') sendNotice()">
+<button class="btn btn-g" onclick="sendNotice()">发送</button>
+<button class="btn btn-r" onclick="clearNotice()">清除</button>
+</div>
+<div class="text-muted text-sm mt-sm" id="noticeStatus">当前无通知</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-h"><span>📋 公告管理</span><button class="btn btn-g" onclick="addNoticeItem()">+ 发布</button></div>
+<div class="card-b"><table><thead><tr><th>标题</th><th>内容</th><th>级别</th><th>状态</th><th>时间</th><th>操作</th></tr></thead><tbody id="noticesBody"></tbody></table></div>
+</div>
+
+<div class="card">
+<div class="card-h"><span>💬 用户反馈</span><span class="text-muted text-sm" id="feedbackCount">0 待处理</span></div>
+<div class="card-b"><table><thead><tr><th>ID</th><th>内容</th><th>UID</th><th>联系方式</th><th>状态</th><th>时间</th><th>操作</th></tr></thead><tbody id="feedbacksBody"></tbody></table></div>
+</div>
+
+<div class="card">
+<div class="card-h"><span>📖 名字映射表</span><span style="display:flex;gap:4px"><button class="btn" onclick="syncNameMap()">⟳ 同步</button><button class="btn btn-p" onclick="pushNameMap()">📤 推送</button><button class="btn btn-g" onclick="addNameMap()">+ 添加</button></span></div>
+<div class="card-b" style="max-height:300px;overflow-y:auto"><table><thead><tr><th>预览</th><th>ID</th><th>名称</th><th>类型</th><th>操作</th></tr></thead><tbody id="nameMapBody"></tbody></table></div>
+</div>
+<div class="card">
+<div class="card">
+<div class="card-h"><span>🚫 IP 黑名单</span><span style="display:flex;gap:4px"><button class="btn btn-r" onclick="banIp()">+ 手动封禁</button></span></div>
+<div class="card-b" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>IP</th><th>操作</th></tr></thead><tbody id="blockedBody"></tbody></table></div>
+</div>
+<div class="card">
+<div class="card-h"><span>🔌 定时任务</span><button class="btn btn-p" onclick="showScheduleModal()">+ 新建</button></div>
+<div class="card-b"><table><thead><tr><th>操作</th><th>执行时间</th><th>状态</th><th>操作</th></tr></thead><tbody id="scheduleBody"></tbody></table></div>
+</div>
+<div class="card-h"><span>📊 请求日志</span></div>
+<div class="card-b" style="max-height:300px;overflow-y:auto"><table><thead><tr><th>时间</th><th>功能</th><th>方法</th><th>状态</th><th>调用者</th><th>耗时</th></tr></thead><tbody id="logsBody"></tbody></table></div>
+</div>
+</div>
+</div>
+
+<!-- 模态框 -->
+<div id="modalOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center" onclick="if(event.target===this)hideModal()">
+<div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:24px;width:90%;max-width:420px;max-height:80vh;overflow-y:auto">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<h3 id="modalTitle" style="color:#e2e8f0;font-size:16px;font-weight:600"></h3>
+<button onclick="hideModal()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">x</button>
+</div>
+<div id="modalBody" style="margin-bottom:16px"></div>
+<div style="text-align:right">
+<button class="btn" onclick="hideModal()" style="margin-right:8px">取消</button>
+<button class="btn btn-p" id="modalConfirm" onclick="if(modalCallback)modalCallback()">确定</button>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let token='',allKeys=[];
+function toast(m){const d=document.getElementById('toast');d.textContent=m;d.className='toast show';setTimeout(()=>d.className='toast',2500)}
+function copy(t){const i=document.createElement('input');i.value=t;document.body.appendChild(i);i.select();document.execCommand('copy');document.body.removeChild(i);toast('已复制')}
+async function api(p,o={}){o.headers={...o.headers,'X-Master-Key':token};if(o.body&&typeof o.body==='object'){o.headers['Content-Type']='application/json';o.body=JSON.stringify(o.body)}try{const r=await fetch(p,o);return await r.json()}catch(e){toast('请求失败');return null}}
+
+function login(){token=document.getElementById('pwd').value;if(!token)return;api('/admin/status').then(d=>{if(d&&d.code===0){document.getElementById('loginWrap').style.display='none';document.getElementById('dash').style.display='block';loadAll();setInterval(loadAll,30000)}else{toast('密码错误');token=''}})}
+function logout(){document.getElementById('dash').style.display='none';document.getElementById('loginWrap').style.display='flex';token=''}
+
+async function loadAll(){const[s,keys,notices,feedbacks,logs,nameMapData]=await Promise.all([api('/admin/status'),api('/admin/keys'),api('/api/notices'),api('/admin/feedbacks'),api('/admin/logs?limit=50'),api('/admin/name-map')]);if(s&&s.code===0)renderStats(s.data);if(keys&&keys.code===0){allKeys=keys.data;renderKeys(keys.data);renderFwt(keys.data)}if(notices&&notices.code===0)renderNotices(notices.data);if(feedbacks&&feedbacks.code===0)renderFeedbacks(feedbacks.data);if(logs&&logs.code===0)renderLogs(logs.data);if(nameMapData&&nameMapData.code===0)renderNameMap(nameMapData.data);const schedule=await api('/admin/schedule'),blocked=await api('/admin/blocked');if(schedule&&schedule.code===0)renderSchedule(schedule.data);if(blocked&&blocked.code===0)renderBlocked(blocked.data)}
+
+function renderStats(d){document.getElementById('meta').textContent='运行 '+fmt(d.uptime)+' · '+d.userCount+'用户 · '+d.totalRequests+'请求 · v'+d.version;document.getElementById('statsGrid').innerHTML='<div class="stat"><div class="l">运行时间</div><div class="v purple">'+fmt(d.uptime)+'</div></div><div class="stat"><div class="l">API Keys</div><div class="v">'+d.keyCount+'</div><div class="s">活跃 '+d.activeKeys+'</div></div><div class="stat"><div class="l">保活用户</div><div class="v green">'+d.userCount+'</div><div class="s">刷新成功 '+d.refreshSuccess+'</div></div><div class="stat"><div class="l">请求总量</div><div class="v gold">'+d.totalRequests+'</div><div class="s">今日 '+d.todayRequests+'</div></div>'}
+
+function renderKeys(keys){const b=document.getElementById('keysBody');b.innerHTML='<tr style="background:rgba(99,102,241,0.05)"><td style="color:#818cf8;font-weight:600">固定 Key (APP)</td><td style="cursor:pointer;color:#818cf8" onclick="copy(\'tjd_yh_2024_fixed\')" title="点击复制">tjd_yh_2024_fixed</td><td><span class="tag tag-g">启用</span></td><td>-</td><td>固定 key<span class="text-muted">(不限)</span></td><td>-</td><td><span class="text-muted text-sm">不可删除</span></td></tr>'+keys.map(k=>'<tr><td>'+k.name+'</td><td style="cursor:pointer" onclick="copy(\''+k.key+'\')" title="点击复制">'+k.key.substring(0,16)+'...</td><td><span class="tag '+(k.enabled?'tag-g':'tag-r')+'">'+(k.enabled?'启用':'禁用')+'</span></td><td>'+(k.useCount||0)+'</td><td>'+(k.boundUids&&k.boundUids.length>0?k.boundUids.join(', '):'-')+(k.maxUsers>0?' <span class="text-muted">('+k.boundUids.length+'/'+k.maxUsers+')</span>':'')+'</td><td>'+(k.lastUsed?new Date(k.lastUsed).toLocaleString():'-')+'</td><td><button class="btn btn-r" onclick="deleteKey(\''+k.id+'\')">删除</button></td></tr>').join('')}
+
+function renderFwt(keys){const list=(keys&&keys.length>0&&keys[0].allTokens)?keys[0].allTokens:[];const b=document.getElementById('fwtBody');document.getElementById('fwtCount').textContent=list.length+' 在线';if(list.length===0){b.innerHTML='<tr><td colspan="4" style="color:#475569;text-align:center;padding:20px">暂无在线用户</td></tr>';return}b.innerHTML=list.map(u=>'<tr><td style="cursor:pointer" onclick="copy(\''+(u.gameRoleId||u.uid)+'\')">'+(u.gameRoleId||'-')+'</td><td style="font-size:11px;color:#64748b">'+u.uid+'</td><td style="font-size:11px;cursor:pointer" onclick="copy(\''+u.fwt+'\')">'+u.fwt.substring(0,20)+'...</td><td>'+(u.lastRefresh?new Date(u.lastRefresh).toLocaleString():'-')+'</td></tr>').join('')}
+
+async function addKey(){const name=prompt('Key 名称:');if(!name)return;const maxU=prompt('最大绑定UID数（0=不限）:','0');const maxUsers=parseInt(maxU)||0;const r=await api('/admin/keys',{method:'POST',body:{name,maxUsers}});if(r&&r.code===0){toast('已生成: '+r.data.key);loadAll()}else toast('生成失败')}
+async function deleteKey(id){if(!confirm('确定删除？'))return;const r=await api('/admin/keys/'+id,{method:'DELETE'});if(r&&r.code===0){toast('已删除');loadAll()}else toast('删除失败')}
+
+// 通知
+async function sendNotice(){const msg=document.getElementById('noticeInput').value;if(!msg){toast('请输入内容');return}const r=await api('/admin/broadcast',{method:'POST',body:{message:msg}});if(r&&r.code===0){toast('✅ 通知已发送，APP下次请求时显示');document.getElementById('noticeInput').value=''}else toast('发送失败')}
+async function clearNotice(){const r=await api('/admin/broadcast',{method:'DELETE'});if(r&&r.code===0){toast('通知已清除')}else toast('清除失败')}
+
+// 公告
+function renderNotices(list){const b=document.getElementById('noticesBody');if(!list||list.length===0){b.innerHTML='<tr><td colspan="6" style="color:#475569;text-align:center;padding:20px">暂无公告</td></tr>';return}b.innerHTML=list.map(n=>'<tr><td>'+n.title+'</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+n.content+'</td><td><span class="tag '+(n.level==='warning'?'tag-y':'tag-g')+'">'+(n.level||'info')+'</span></td><td><span class="tag '+(n.active?'tag-g':'tag-r')+'">'+(n.active?'显示':'隐藏')+'</span></td><td style="font-size:11px">'+new Date(n.createdAt).toLocaleString()+'</td><td><button class="btn" onclick="toggleNotice(\''+n.id+'\')">'+(n.active?'隐藏':'显示')+'</button> <button class="btn btn-r" onclick="deleteNotice(\''+n.id+'\')">删除</button></td></tr>').join('')}
+async function toggleNotice(id){const r=await api('/admin/notices/'+id,{method:'PUT',body:{active:false}});if(r&&r.code===0)loadAll();else toast('操作失败')}
+async function deleteNotice(id){if(!confirm('确定删除？'))return;const r=await api('/admin/notices/'+id,{method:'DELETE'});if(r&&r.code===0){toast('已删除');loadAll()}else toast('删除失败')}
+async function addNoticeItem(){const title=prompt('公告标题:');if(!title)return;const content=prompt('公告内容:');if(!content)return;const level=prompt('级别 (info/warning):','info');const r=await api('/admin/notices',{method:'POST',body:{title,content,level:level||'info'}});if(r&&r.code===0){toast('公告已发布');loadAll()}else toast('发布失败')}
+
+// 反馈
+function renderFeedbacks(list){const b=document.getElementById('feedbacksBody');const pending=list?list.filter(f=>f.status==='pending').length:0;document.getElementById('feedbackCount').textContent=pending+' 待处理';if(!list||list.length===0){b.innerHTML='<tr><td colspan="5" style="color:#475569;text-align:center;padding:20px">暂无反馈</td></tr>';return}b.innerHTML=list.map(f=>'<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+f.content+'</td><td>'+(f.contact||'-')+'</td><td><span class="tag '+(f.status==='pending'?'tag-y':'tag-g')+'">'+(f.status==='pending'?'待处理':'已处理')+'</span></td><td style="font-size:11px">'+new Date(f.createdAt).toLocaleString()+'</td><td>'+(f.status==='pending'?'<button class="btn btn-g" onclick="markFeedback(\''+f.id+'\')">标记已处理</button>':'<span class="text-muted text-sm">已处理</span>')+'</td></tr>').join('')}
+async function markFeedback(id){const r=await api('/admin/feedbacks/'+id,{method:'PUT',body:{status:'resolved'}});if(r&&r.code===0){toast('已标记');loadAll()}else toast('操作失败')}
+
+// 日志
+function renderLogs(list){
+  var b=document.getElementById('logsBody');
+  if(!list||list.length===0){
+    b.innerHTML='<tr><td colspan="6" style="color:#475569;text-align:center;padding:20px">暂无日志</td></tr>';
+    return;
+  }
+  var html='';
+  for(var i=0;i<Math.min(list.length,50);i++){
+    var l=list[i];
+    var time=l.time?new Date(l.time).toLocaleString():'-';
+    var action=l.action||l.path||'-';
+    var method=l.method||'-';
+    var status=l.status||'-';
+    var keyName=l.keyName||'-';
+    var ms=l.ms||'-';
+    var mTag=method==='POST'?'tag-y':'tag-g';
+    var sTag=status>=400?'tag-r':'tag-g';
+    html+='<tr><td style="font-size:10px;white-space:nowrap">'+time+'</td><td style="font-size:11px">'+action+'</td><td><span class="tag '+mTag+'">'+method+'</span></td><td><span class="tag '+sTag+'">'+status+'</span></td><td style="font-size:11px;color:#818cf8">'+keyName+'</td><td style="font-size:11px">'+ms+'ms</td></tr>';
+  }
+  b.innerHTML=html;
+}
+
+function renderNameMap(d){
+  const map=d.map||{},b=document.getElementById('nameMapBody');
+  const entries=Object.entries(map).sort(function(a,b){return a[0].localeCompare(b[0])});
+  if(entries.length===0){
+    b.innerHTML='<tr><td colspan="5" style="color:#475569;text-align:center;padding:20px">暂无映射数据</td></tr>';
+    return;
+  }
+  var rows='';
+  for(var i=0;i<entries.length;i++){
+    var id=entries[i][0];
+    var name=entries[i][1];
+    var isFork=id.indexOf('fork_')===0;
+    var imgUrl=isFork?'https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/'+id+'.png':'https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/avatar/square/'+id+'.PNG';
+    rows+='<tr><td><img src="'+imgUrl+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;background:#1e293b;vertical-align:middle" onerror="this.style.display=\'none\'" loading="lazy"></td>';
+    if(name){
+      rows+='<td style="font-size:11px;font-family:monospace;cursor:pointer" onclick="copy(\''+id+'\')">'+id+'</td><td>'+name+'</td>';
+    }else{
+      rows+='<td style="font-size:11px;font-family:monospace;color:#ef4444;cursor:pointer" onclick="copy(\''+id+'\')">'+id+'</td><td style="color:#ef4444;font-style:italic">待命名</td>';
+    }
+    rows+='<td><span class="tag '+(isFork?'tag-y':'tag-g')+'">'+(isFork?'弧盘':'角色')+'</span></td>';
+    rows+='<td><button class="btn" onclick="editNameMap(\''+id+'\',\''+(name||'')+'\')" style="margin-right:4px">编辑</button><button class="btn btn-r" onclick="deleteNameMap(\''+id+'\')">删除</button></td></tr>';
+  }
+  b.innerHTML=rows;
+}
+async function addNameMap(){const id=prompt('角色/弧盘ID（如 fork_xxx 或 数字ID）:');if(!id)return;const name=prompt('名称:');if(!name)return;const r=await api('/admin/name-map',{method:'POST',body:{id,name}});if(r&&r.code===0){toast('已添加');loadAll()}else toast('添加失败')}
+async function deleteNameMap(id){if(!confirm('确定删除？'))return;const r=await api('/admin/name-map/'+encodeURIComponent(id),{method:'DELETE'});if(r&&r.code===0){toast('已删除');loadAll()}else toast('删除失败')}
+
+function renderSchedule(list){const b=document.getElementById('scheduleBody');if(!list||list.length===0){b.innerHTML='<tr><td colspan="4" style="color:#475569;text-align:center;padding:20px">暂无定时任务</td></tr>';return}b.innerHTML=list.map(t=>{const d=new Date(t.scheduledAt);const timeStr=d.getMonth()+1+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');const actionNames={shutdown:'关机',reboot:'重启',docker_restart:'重启容器'};return '<tr><td>'+(actionNames[t.action]||t.action)+'</td><td>'+timeStr+'</td><td><span class="tag '+(t.enabled?'tag-g':'tag-r')+'">'+(t.enabled?'等待中':'已取消')+'</span></td><td><button class="btn btn-r" onclick="deleteSchedule(\''+t.id+'\')">删除</button></td></tr>'}).join('')}
+async function deleteSchedule(id){if(!confirm('确定删除？'))return;const r=await api('/admin/schedule/'+id,{method:'DELETE'});if(r&&r.code===0){toast('已删除');loadAll()}else toast('删除失败')}
+function showScheduleModal(){showModal('定时任务','<div style="margin-bottom:10px"><label style="display:block;color:#94a3b8;font-size:12px;margin-bottom:4px">操作</label><select id="modalAction" style="width:100%;background:#0a0e1a;border:1px solid #1e293b;color:#e2e8f0;padding:8px 10px;border-radius:6px;font-size:13px"><option value="docker_restart">重启容器</option><option value="reboot">重启服务器</option><option value="shutdown">关机</option></select></div><div style="margin-bottom:10px"><label style="display:block;color:#94a3b8;font-size:12px;margin-bottom:4px">执行时间（每天）</label><input type="time" id="modalTime" value="04:00" style="width:100%;background:#0a0e1a;border:1px solid #1e293b;color:#e2e8f0;padding:8px 10px;border-radius:6px;font-size:13px"></div><div style="text-align:center;color:#64748b;font-size:11px">设定后每天这个时间自动执行</div>','确定创建',async function(){const action=document.getElementById('modalAction').value;const time=document.getElementById('modalTime').value;const parts=time.split(':');const cron=parts[1]+' '+parts[0]+' * * *';const r=await api('/admin/schedule',{method:'POST',body:{action,time:cron,type:'cron'}});if(r&&r.code===0){toast('已创建');hideModal();loadAll()}else toast('创建失败')})}
+
+// 模态框系统
+var modalCallback=null;
+function showModal(title,content,btnText,callback){modalCallback=callback;document.getElementById('modalOverlay').style.display='block';document.getElementById('modalTitle').textContent=title;document.getElementById('modalBody').innerHTML=content;document.getElementById('modalConfirm').textContent=btnText||'确定';document.getElementById('modalConfirm').style.display='inline-block'}
+function hideModal(){document.getElementById('modalOverlay').style.display='none';modalCallback=null}
+
+function renderBlocked(d){const b=document.getElementById('blockedBody');const ips=d.ips||[];if(ips.length===0){b.innerHTML='<tr><td colspan="2" style="color:#475569;text-align:center;padding:20px">暂无被封禁IP</td></tr>';return}b.innerHTML=ips.map(ip=>'<tr><td style="font-family:monospace;font-size:12px">'+ip+'</td><td><button class="btn btn-g" onclick="unbanIp(\''+ip+'\')">解封</button></td></tr>').join('')}
+async function banIp(){const ip=prompt('输入要封禁的IP:');if(!ip)return;const r=await api('/admin/blocked',{method:'POST',body:{ip}});if(r&&r.code===0){toast('已封禁');loadAll()}else toast('封禁失败')}
+async function unbanIp(ip){if(!confirm('确定解封 '+ip+' ？'))return;const r=await api('/admin/blocked/'+encodeURIComponent(ip),{method:'DELETE'});if(r&&r.code===0){toast('已解封');loadAll()}else toast('解封失败')}
+async function editNameMap(id,currentName){const name=prompt('输入名称（ID: '+id+'）:',currentName||'');if(name===null||name===undefined)return;if(!name.trim()){toast('名称不能为空');return}const r=await api('/admin/name-map',{method:'POST',body:{id,name:name.trim()}});if(r&&r.code===0){toast('已更新');loadAll()}else toast('更新失败')}
+async function syncNameMap(){toast('正在从游戏服务器同步最新ID...');const r=await api('/admin/name-map/sync',{method:'POST'});if(r&&r.code===0){toast('同步完成，新增 '+r.data.added+' 条，共 '+r.data.total+' 条');loadAll()}else toast('同步失败')}
+async function pushNameMap(){toast('正在推送名字映射到APP...');// 直接让APP下次心跳时拉取最新数据，无需额外操作；这里只是刷新服务端缓存
+const r=await api('/admin/name-map');if(r&&r.code===0){toast('已推送，APP下次请求将使用最新映射（共 '+r.data.total+' 条）');}else toast('推送失败')}
+function fmt(s){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);return(d>0?d+'d ':'')+h+'h '+m+'m'}
+</script>
+</body>
+</html>
