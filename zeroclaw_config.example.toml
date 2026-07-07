@@ -1,0 +1,42 @@
+schema_version = 3
+
+[gateway]
+port = 3001
+host = "127.0.0.1"
+
+[agents.onyx]
+delegate_same_risk_profile = true
+enabled = true
+model_provider = "openai.default"
+risk_profile = "default"
+runtime_profile = "default"
+
+[agents.onyx.a2a]
+published = false
+
+[agents.onyx.identity]
+format = "openclaw"
+
+[risk_profiles.default]
+workspace_only = false
+allowed_roots = ["[/]"]
+forbidden_paths = ["/etc", "/root/.ssh"]
+allowed_commands = ["git", "npm", "ls", "cat", "grep", "find",
+                    "echo", "pwd", "wc", "head", "tail", "date",
+                    "df", "du", "uname", "uptime", "hostname",
+                    "python", "python3", "pip", "node", "free",
+                    "curl", "docker", "ps", "ssh", "awk", "sed"]
+max_actions_per_hour = 60
+level = "full"
+
+[agents.onyx.workspace]
+unrestricted_filesystem = false
+
+[runtime_profiles.default]
+max_actions_per_hour = 120
+
+[providers.models.openai.default]
+# ===== 在这里填写你的 AI API Key =====
+api_key = "sk-your_api_key_here"
+model = "deepseek-chat"
+uri = "https://api.deepseek.com/v1"
