@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(cors());
@@ -13,19 +12,17 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.static('public'));
 // favicon 防止 404
 app.get('/favicon.ico', (req, res) => res.status(204).end());
-
 const DATA_DIR = process.env.DATA_DIR || '/data';
-const MASTER_KEY = process.env.MASTER_KEY || 'admin123';
-const TAJIDUO_BASE = process.env.TAJIDUO_BASE || 'https://bbs-api.tajiduo.com';
-const LAOHU_BASE = process.env.LAOHU_BASE || 'https://user.laohu.com';
-const APP_VERSION = process.env.APP_VERSION || '1.0.0';
-const DS_SALT = process.env.DS_SALT || 'pUds3dfMkl';
-const LAOHU_APP_KEY = process.env.LAOHU_APP_KEY || '89155cc4e8634ec5b1b6364013b23e3e';
+const MASTER_KEY = process.env.MASTER_KEY || 'change_me_admin_password';
+const TAJIDUO_BASE = 'https://bbs-api.tajiduo.com';
+const LAOHU_BASE = 'https://user.laohu.com';
+const APP_VERSION = '1.2.2';
+const DS_SALT = 'pUds3dfMkl';
+const LAOHU_APP_KEY = '89155cc4e8634ec5b1b6364013b23e3e';
 const KEYS_FILE = path.join(DATA_DIR, "api-keys.json");
-const FIXED_KEY = process.env.FIXED_KEY || "tjd_default_fixed_key";
+const FIXED_KEY = "tjd_yh_2024_fixed";
 let fixedBoundUids = [];
 const TOKENS_FILE = path.join(DATA_DIR, 'fwt-tokens.json');
-
 let apiKeys = [];
 const fwtTokens = new Map();
 function load() {
@@ -41,9 +38,7 @@ function saveKeys() { try { fs.writeFileSync(KEYS_FILE, JSON.stringify(apiKeys, 
 function saveTokens() {
   try { const o = {}; for (const [k, v] of fwtTokens.entries()) o[k] = v; fs.writeFileSync(TOKENS_FILE, JSON.stringify(o, null, 2)); } catch (e) {}
 }
-
 let globalNotice = '';
-
 function ok(data, msg) { const r = { code: 0, msg: msg || 'ok', data: data }; if (globalNotice) r.notice = globalNotice; return r; }
 function fail(c, m) {
   const o = { 400: 'MISSING_PARAM', 401: 'UNAUTHORIZED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 406: 'BANNED', 429: 'RATE_LIMIT', 500: 'INTERNAL_ERROR' };
@@ -66,7 +61,6 @@ function laohuSign(p) {
   let s = ''; for (const k of ks) s += p[k];
   return crypto.createHash('md5').update(s + LAOHU_APP_KEY).digest('hex');
 }
-
 async function laohuPost(path, body, ep, ec) {
   const p = { ...body };
   const ak = LAOHU_APP_KEY.slice(-16);
@@ -80,7 +74,6 @@ async function laohuPost(path, body, ep, ec) {
   });
   return await r.json();
 }
-
 async function tajiduoGet(path, token) {
   const ds = generateDS();
   const h = { 'platform': 'android', 'appversion': APP_VERSION, 'ds': ds, 'User-Agent': 'okhttp/4.12.0' };
@@ -89,7 +82,6 @@ async function tajiduoGet(path, token) {
   const text = await r.text();
   try { return JSON.parse(text); } catch (e) { return { code: -1, msg: 'parse error', raw: text }; }
 }
-
 async function tajiduoPost(path, body, token) {
   const ds = generateDS();
   const h = { 'platform': 'android', 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'okhttp/4.12.0', 'appversion': APP_VERSION, 'ds': ds };
@@ -98,16 +90,16 @@ async function tajiduoPost(path, body, token) {
   return await r.json();
 }
 
-async function doRefresh(rt, uid) {
-  return await tajiduoPost('/usercenter/api/refreshToken', { refreshToken: rt, uid, deviceid: uid }, rt);
+async function doRefresh(rt, uid, at) {
+  return await tajiduoPost('/usercenter/api/refreshToken', { refreshToken: rt, uid, deviceid: uid }, at || rt);
 }
 async function refreshAll() {
   let ok = 0, fail = 0;
   for (const [fwt, d] of fwtTokens.entries()) {
     try {
-      const r = await doRefresh(d.refreshToken, d.uid);
+      const r = await doRefresh(d.refreshToken, d.uid, d.accessToken);
       if (r.code === 0 && r.data) {
-        fwtTokens.set(fwt, { accessToken: r.data.accessToken, refreshToken: r.data.refreshToken, uid: d.uid, deviceId: d.deviceId, lastRefresh: Date.now() });
+        fwtTokens.set(fwt, { accessToken: r.data.accessToken, refreshToken: r.data.refreshToken, uid: d.uid, deviceId: d.deviceId, lastRefresh: Date.now(), gameRoleId: d.gameRoleId || '' });
         ok++;
       } else fail++;
     } catch (e) { fail++; }
@@ -115,26 +107,21 @@ async function refreshAll() {
   saveTokens();
   console.log(`[刷新] ${ok}成功 ${fail}失败`);
 }
-
 function masterAuth(req, res, next) {
   const mk = req.headers['x-master-key'];
   if (mk !== MASTER_KEY) return res.status(401).json(fail(401));
   next();
 }
-
 // ===== App API =====
-
-
 // API Key 验证中间件
 function apiKeyCheck(req, res, next) {
   const ak = req.headers["x-api-key"];
-  if (!ak) return res.status(400).json(fail(400, "缺少 X-API-Key"));
+  if (!ak) return res.status(400).json(fail(400, "请先在设置页填写 API Key"));
   const kd = apiKeys.find(k => k.key === ak && k.enabled);
-  if (!kd && ak !== FIXED_KEY) return res.status(401).json(fail(401, "API Key 无效"));
+  if (!kd && ak !== FIXED_KEY) return res.status(401).json(fail(401, "API Key 无效或已禁用"));
   req.keyData = kd;
   next();
 }
-
 app.post('/api/login/captcha', apiKeyCheck, async (req, res) => {
   try {
     const { phone } = req.body;
@@ -148,9 +135,8 @@ app.post('/api/login/captcha', apiKeyCheck, async (req, res) => {
     });
     if (result.code === 0) res.json(ok({ deviceId: did }));
     else res.json(fail(result.code, result.message));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 app.post('/api/login/verify', apiKeyCheck, async (req, res) => {
   try {
     const { phone, captcha } = req.body;
@@ -167,86 +153,128 @@ app.post('/api/login/verify', apiKeyCheck, async (req, res) => {
     const er = await tajiduoPost('/usercenter/api/login', { token, userIdentity: userId.toString(), appId: '10551' }, token);
     if (!er.ok || !er.data) return res.json(fail(er.code || 400, er.msg || 'token交换失败'));
     const { accessToken, refreshToken, uid } = er.data;
-    const fwt = 'fwt_' + randStr(32);
-    fwtTokens.set(fwt, { accessToken, refreshToken, uid: uid.toString(), deviceId: 'app', lastRefresh: Date.now() });
+    // Reuse fwt
+let fwt = null;
+for (const [k, v] of fwtTokens.entries()) { if (v.uid === uid.toString()) { fwt = k; break; } }
+if (!fwt) fwt = 'fwt_' + randStr(32);
+fwtTokens.set(fwt, { accessToken, refreshToken, uid: uid.toString(), deviceId: 'app', lastRefresh: Date.now() });
     saveTokens();
-    const keyData = apiKeys.find(k => k.enabled);
+    const ak = req.headers['x-api-key'];
+    const keyData = apiKeys.find(k => k.key === ak && k.enabled);
     if (keyData) {
       if (!keyData.boundUids) keyData.boundUids = [];
-      if (!keyData.boundUids.includes(uid.toString())) keyData.boundUids.push(uid.toString());
+      if (keyData.maxUsers > 0 && keyData.boundUids.length >= keyData.maxUsers && !keyData.boundUids.includes(uid.toString())) {
+      } else if (!keyData.boundUids.includes(uid.toString())) {
+        keyData.boundUids.push(uid.toString());
+      }
       saveKeys();
     } else {
       if (!fixedBoundUids.includes(uid.toString())) fixedBoundUids.push(uid.toString());
     }
     res.json(ok({ accessToken, refreshToken, uid: uid.toString() }));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
-app.get('/api/game/getGameRoles', async (req, res) => {
+app.get('/api/game/getGameRoles', apiKeyCheck, async (req, res) => {
   try {
     const path = '/usercenter/api/v2/getGameRoles?' + new URLSearchParams(req.query).toString();
     const at = req.headers['authorization'] ? req.headers['authorization'].replace('Bearer ', '') : '';
     const result = await tajiduoGet(path, at);
     res.json(result);
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
 
-app.get('/api/game/*', async (req, res) => {
+app.get('/api/game/*', apiKeyCheck, async (req, res) => {
   try {
     const suffix = req.path.replace('/api/game', '');
-    const isSign = suffix.includes('/sign');
+    const isSign = suffix === '/sign' || suffix === '/signin/state' || suffix.startsWith('/sign/') || suffix.startsWith('/sign?');
     const path = (isSign ? '/apihub/awapi' : '/apihub/awapi/yh') + suffix + '?' + new URLSearchParams(req.query).toString();
     let at = req.headers['authorization'] ? req.headers['authorization'].replace('Bearer ', '') : '';
     let result = await tajiduoGet(path, at);
-    if (result && result.code === -1 && result.raw === '' && fwtTokens.size > 0) {
-      for (const [fwt, d] of fwtTokens.entries()) {
-        if (d.accessToken) {
-          const rr = await doRefresh(d.refreshToken, d.uid);
-          if (rr.code === 0 && rr.data) {
-            d.accessToken = rr.data.accessToken;
-            d.refreshToken = rr.data.refreshToken;
-            d.lastRefresh = Date.now();
-            saveTokens();
-            at = d.accessToken;
-            result = await tajiduoGet(path, at);
+    if (result && result.code === -1 && result.raw === "" && fwtTokens.size > 0) {
+      const roleId = req.query.roleId;
+      let matched = false;
+      if (roleId) {
+        for (const [fwt, d] of fwtTokens.entries()) {
+          if (d.gameRoleId === roleId && d.accessToken) {
+            const rr = await doRefresh(d.refreshToken, d.uid, d.accessToken);
+            if (rr.code === 0 && rr.data) {
+              d.accessToken = rr.data.accessToken;
+              d.refreshToken = rr.data.refreshToken;
+              d.lastRefresh = Date.now();
+              saveTokens();
+              at = d.accessToken;
+              result = await tajiduoGet(path, at);
+            }
+            matched = true;
+            break;
           }
-          break;
         }
       }
-    }
-    res.json(result);
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+      if (matched === false) {
+        for (const [fwt, d] of fwtTokens.entries()) {
+          if (d.accessToken) {
+            const rr = await doRefresh(d.refreshToken, d.uid, d.accessToken);
+            if (rr.code === 0 && rr.data) {
+              d.accessToken = rr.data.accessToken;
+              d.refreshToken = rr.data.refreshToken;
+              d.lastRefresh = Date.now();
+              saveTokens();
+              at = d.accessToken;
+              result = await tajiduoGet(path, at);
+            }
+            break;
+          }
+        }
+      }
+    }res.json(result);
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
-
-app.post('/api/game/*', async (req, res) => {
+app.post('/api/game/*', apiKeyCheck, async (req, res) => {
   try {
     const suffix = req.path.replace('/api/game', '');
-    const isSign = suffix.includes('/sign');
+    const isSign = suffix === '/sign' || suffix === '/signin/state' || suffix.startsWith('/sign/') || suffix.startsWith('/sign?');
     const path = (isSign ? '/apihub/awapi' : '/apihub/awapi/yh') + suffix;
     let at = req.headers['authorization'] ? req.headers['authorization'].replace('Bearer ', '') : '';
     let result = await tajiduoPost(path, req.body, at);
-    if (result && result.code === -1 && result.raw === '' && fwtTokens.size > 0) {
-      for (const [fwt, d] of fwtTokens.entries()) {
-        if (d.accessToken) {
-          const rr = await doRefresh(d.refreshToken, d.uid);
-          if (rr.code === 0 && rr.data) {
-            d.accessToken = rr.data.accessToken;
-            d.refreshToken = rr.data.refreshToken;
-            d.lastRefresh = Date.now();
-            saveTokens();
-            at = d.accessToken;
-            result = await tajiduoPost(path, req.body, at);
+    if (result && result.code === -1 && result.raw === "" && fwtTokens.size > 0) {
+      const roleId = req.body.roleId;
+      let matched = false;
+      if (roleId) {
+        for (const [fwt, d] of fwtTokens.entries()) {
+          if (d.gameRoleId === roleId && d.accessToken) {
+            const rr = await doRefresh(d.refreshToken, d.uid, d.accessToken);
+            if (rr.code === 0 && rr.data) {
+              d.accessToken = rr.data.accessToken;
+              d.refreshToken = rr.data.refreshToken;
+              d.lastRefresh = Date.now();
+              saveTokens();
+              at = d.accessToken;
+              result = await tajiduoPost(path, req.body, at);
+            }
+            matched = true;
+            break;
           }
-          break;
         }
       }
-    }
-    res.json(result);
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+      if (matched === false) {
+        for (const [fwt, d] of fwtTokens.entries()) {
+          if (d.accessToken) {
+            const rr = await doRefresh(d.refreshToken, d.uid, d.accessToken);
+            if (rr.code === 0 && rr.data) {
+              d.accessToken = rr.data.accessToken;
+              d.refreshToken = rr.data.refreshToken;
+              d.lastRefresh = Date.now();
+              saveTokens();
+              at = d.accessToken;
+              result = await tajiduoPost(path, at);
+            }
+            break;
+          }
+        }
+      }
+    }res.json(result);
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
-
 // APP端绑定 API Key 到游戏UID
 app.post('/api/key/bind', async (req, res) => {
   try {
@@ -268,7 +296,7 @@ app.post('/api/key/bind', async (req, res) => {
     } else {
       res.json(ok({ bound: true, keyName: 'APP默认Key', gameRoleId }));
     }
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
 
 app.post('/api/keepalive/register', async (req, res) => {
@@ -300,30 +328,9 @@ app.post('/api/keepalive/register', async (req, res) => {
       saveTokens();
       res.json(ok({ fwt, uid: uid.toString(), updated: false }));
     }
-    // 同时也把游戏UID绑定到对应的 API Key
-    if (gameRoleId) {
-      const ak = req.headers['x-api-key'];
-      if (ak) {
-        const kd = apiKeys.find(k => k.key === ak && k.enabled);
-        if (kd) {
-          if (!kd.boundUids) kd.boundUids = [];
-          const gid = gameRoleId.toString();
-          // 去重
-          kd.boundUids = [...new Set(kd.boundUids)];
-          if (!kd.boundUids.includes(gid)) {
-            if (kd.maxUsers > 0 && kd.boundUids.length >= kd.maxUsers) {
-              // 已达上限，不绑定
-            } else {
-              kd.boundUids.push(gid);
-            }
-          }
-          saveKeys();
-        }
-      }
-    }
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
-});
 
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
+});
 app.get('/api/key/verify', async (req, res) => {
   try {
     const ak = req.headers['x-api-key'];
@@ -335,9 +342,8 @@ app.get('/api/key/verify', async (req, res) => {
     var count = kd ? (kd.useCount || 0) : 0;
     if (kd) { kd.lastUsed = new Date().toISOString(); kd.useCount = count + 1; saveKeys(); }
     res.json(ok({ name: name, enabled: enabled, useCount: count }));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 app.get('/api/system/info', async (req, res) => {
   try {
     const os = require('os');
@@ -364,9 +370,8 @@ app.get('/api/system/info', async (req, res) => {
       uptime: Math.floor(os.uptime()), loadAvg: loadAvg.map(v => v.toFixed(2)),
       os: os.type() + ' ' + os.release(), hostname: os.hostname()
     }));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 app.get('/admin/status', masterAuth, (req, res) => {
   const totalReq = apiStats.total;
   const todayReq = apiStats.today;
@@ -381,19 +386,16 @@ app.get('/admin/status', masterAuth, (req, res) => {
     nodeVersion: process.version, version: '1.1.0'
   }));
 });
-
 // 管理端：被封禁IP列表
 app.get('/admin/blocked', masterAuth, (req, res) => {
   res.json(ok({ ips: [...blockedIps], count: blockedIps.size }));
 });
-
 // 管理端：解封IP
 app.delete('/admin/blocked/:ip', masterAuth, (req, res) => {
   const ip = decodeURIComponent(req.params.ip);
   if (blockedIps.delete(ip)) { saveBlocked(); res.json(ok({ unbanned: ip })); }
   else res.status(404).json(fail(404, 'IP不在黑名单中'));
 });
-
 // 管理端：手动封禁IP
 app.post('/admin/blocked', masterAuth, (req, res) => {
   const { ip } = req.body;
@@ -401,7 +403,6 @@ app.post('/admin/blocked', masterAuth, (req, res) => {
   blockedIps.add(ip); saveBlocked();
   res.json(ok({ banned: ip, total: blockedIps.size }));
 });
-
 app.get('/admin/keys', masterAuth, (req, res) => {
   const allTokens = Array.from(fwtTokens.entries()).map(([fwt, d]) => ({
     fwt, uid: d.uid, gameRoleId: d.gameRoleId || '', lastRefresh: d.lastRefresh
@@ -432,7 +433,6 @@ app.get('/admin/keys', masterAuth, (req, res) => {
   }))];
   res.json(ok(keysWithDetails));
 });
-
 app.post('/admin/keys', masterAuth, (req, res) => {
   const { name, maxUsers } = req.body;
   if (!name) return res.status(400).json(fail(400));
@@ -443,7 +443,6 @@ app.post('/admin/keys', masterAuth, (req, res) => {
   };
   apiKeys.push(k); saveKeys(); res.json(ok(k));
 });
-
 app.put('/admin/keys/:id', masterAuth, (req, res) => {
   const i = apiKeys.findIndex(k => k.id === req.params.id);
   if (i === -1) return res.status(404).json(fail(404));
@@ -459,7 +458,6 @@ app.put('/admin/keys/:id', masterAuth, (req, res) => {
   }
   saveKeys(); res.json(ok(apiKeys[i]));
 });
-
 // 广播通知（供宿主机监控脚本调用）
 app.post('/admin/broadcast', masterAuth, (req, res) => {
   const { message } = req.body;
@@ -476,19 +474,25 @@ app.delete('/admin/broadcast', masterAuth, (req, res) => {
   globalNotice = '';
   res.json(ok(null));
 });
-
 app.delete('/admin/keys/:id', masterAuth, (req, res) => {
   const i = apiKeys.findIndex(k => k.id === req.params.id);
   if (i === -1) return res.status(404).json(fail(404));
-  apiKeys.splice(i, 1); saveKeys(); res.json(ok(null));
+  const delKey = apiKeys[i];
+  const boundUids = delKey.boundUids || [];
+  apiKeys.splice(i, 1); saveKeys();
+  // Clean up fwt tokens for deleted key's bound uids
+  for (const [fwt, d] of fwtTokens.entries()) {
+    if (boundUids.includes(d.uid)) {
+      fwtTokens.delete(fwt);
+    }
+  }
+  saveTokens();
+  res.json(ok(null));
 });
-
 app.get('/health', (req, res) => res.json(ok(null)));
-
 // ===== 角色/弧盘名字映射 =====
 let nameMap = {};
 let nameMapUpdated = 0;
-
 async function updateNameMap() {
   try { if (fs.existsSync(TOKENS_FILE)) { const d = JSON.parse(fs.readFileSync(TOKENS_FILE, "utf8")); for (const [k, v] of Object.entries(d)) { if (!fwtTokens.has(k)) fwtTokens.set(k, v); } } } catch (e) {}
   try {
@@ -516,7 +520,6 @@ async function updateNameMap() {
     console.log('[NameMap] ' + Object.keys(nameMap).length + ' entries');
   } catch (e) {}
 }
-
 // 保存持久化的名字映射
 const NAMEMAP_FILE = path.join(DATA_DIR, 'name-map.json');
 function loadPersistedNameMap() {
@@ -525,9 +528,8 @@ function loadPersistedNameMap() {
 function saveNameMap() {
   try { fs.writeFileSync(NAMEMAP_FILE, JSON.stringify(nameMap, null, 2)); } catch (e) {}
 }
-
 // APP端上报名字映射（登录后或刷新角色后上报）
-app.post('/api/name-map/report', async (req, res) => {
+app.post('/api/name-map/report', apiKeyCheck, async (req, res) => {
   try {
     const { entries } = req.body;
     if (!entries || typeof entries !== 'object') return res.status(400).json(fail(400));
@@ -537,14 +539,12 @@ app.post('/api/name-map/report', async (req, res) => {
     }
     if (added > 0) saveNameMap();
     res.json(ok({ added, total: Object.keys(nameMap).length }));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 // 管理端：获取所有名字映射
 app.get('/admin/name-map', masterAuth, (req, res) => {
   res.json(ok({ map: nameMap, total: Object.keys(nameMap).length }));
 });
-
 // 管理端：添加/更新/编辑名字映射
 app.post('/admin/name-map', masterAuth, (req, res) => {
   try {
@@ -554,9 +554,8 @@ app.post('/admin/name-map', masterAuth, (req, res) => {
     nameMap[id] = name;
     saveNameMap();
     res.json(ok({ id, name, total: Object.keys(nameMap).length }));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 // 管理端：批量获取最新ID列表（从游戏服务器拉取）
 app.post('/admin/name-map/sync', masterAuth, async (req, res) => {
   try {
@@ -577,9 +576,8 @@ app.post('/admin/name-map/sync', masterAuth, async (req, res) => {
     const after = Object.keys(nameMap).length;
     saveNameMap();
     res.json(ok({ added: after - before, total: after }));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 // 管理端：删除名字映射
 app.delete('/admin/name-map/:id', masterAuth, (req, res) => {
   const id = req.params.id;
@@ -588,11 +586,9 @@ app.delete('/admin/name-map/:id', masterAuth, (req, res) => {
   saveNameMap();
   res.json(ok({ deleted: id, total: Object.keys(nameMap).length }));
 });
-
 app.get('/api/name-map', (req, res) => {
   res.json(ok({ map: nameMap }));
 });
-
 // ===== 1. 请求日志 =====
 // 路径 → 功能名映射
 const PATH_NAMES = {
@@ -607,7 +603,7 @@ const PATH_NAMES = {
   '/api/app/version': '版本检查',
   '/api/server/info': '服务器信息',
   '/api/name-map': '名字映射',
-  '/api/name-map/report': '上报名字映射',
+  '/api/name-map/report': '上报名字映��',
   '/admin/status': '系统',
   '/admin/keys': '系统',
   '/admin/notices': '系统',
@@ -625,10 +621,8 @@ function getActionName(path) {
   if (path.startsWith('/admin/')) return '系统';
   return path.split('?')[0];
 }
-
 const requestLog = [];
 const MAX_LOG = 200;
-
 // 日志中间件：记录所有API请求
 app.use((req, res, next) => {
   if (req.path.startsWith('/admin/logs')) return next();
@@ -656,12 +650,10 @@ app.use((req, res, next) => {
   });
   next();
 });
-
 app.get('/admin/logs', masterAuth, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   res.json(ok(requestLog.slice(0, limit)));
 });
-
 // ===== 2. 版本更新检查 =====
 const APP_INFO = {
   version: '1.0',
@@ -671,7 +663,6 @@ const APP_INFO = {
   force: false,
   desc: ''
 };
-
 app.get('/api/app/version', (req, res) => {
   const build = parseInt(req.query.build) || 0;
   const hasUpdate = build < APP_INFO.build;
@@ -684,7 +675,6 @@ app.get('/api/app/version', (req, res) => {
     updateDesc: hasUpdate ? APP_INFO.desc : ''
   }));
 });
-
 // 管理员更新版本信息
 app.post('/admin/app/version', masterAuth, (req, res) => {
   const { version, build, url, force, desc } = req.body;
@@ -696,7 +686,6 @@ app.post('/admin/app/version', masterAuth, (req, res) => {
   APP_INFO.minBuild = req.body.minBuild || APP_INFO.minBuild;
   res.json(ok(APP_INFO));
 });
-
 // ===== 3. 持久化公告 =====
 const NOTICES_FILE = path.join(DATA_DIR, 'notices.json');
 let notices = [];
@@ -704,11 +693,9 @@ function loadNotices() {
   try { if (fs.existsSync(NOTICES_FILE)) notices = JSON.parse(fs.readFileSync(NOTICES_FILE, 'utf8')); } catch (e) { notices = []; }
 }
 function saveNotices() { try { fs.writeFileSync(NOTICES_FILE, JSON.stringify(notices, null, 2)); } catch (e) {} }
-
 app.get('/api/notices', (req, res) => {
   res.json(ok(notices.filter(n => n.active !== false)));
 });
-
 app.post('/admin/notices', masterAuth, (req, res) => {
   const { title, content, level } = req.body;
   if (!title || !content) return res.status(400).json(fail(400));
@@ -731,7 +718,6 @@ app.put('/admin/notices/:id', masterAuth, (req, res) => {
   saveNotices();
   res.json(ok(n));
 });
-
 app.delete('/admin/notices/:id', masterAuth, (req, res) => {
   const i = notices.findIndex(x => x.id === req.params.id);
   if (i === -1) return res.status(404).json(fail(404));
@@ -739,7 +725,6 @@ app.delete('/admin/notices/:id', masterAuth, (req, res) => {
   saveNotices();
   res.json(ok(null));
 });
-
 // ===== 4. 用户反馈 =====
 const FEEDBACKS_FILE = path.join(DATA_DIR, 'feedbacks.json');
 let feedbacks = [];
@@ -747,8 +732,7 @@ function loadFeedbacks() {
   try { if (fs.existsSync(FEEDBACKS_FILE)) feedbacks = JSON.parse(fs.readFileSync(FEEDBACKS_FILE, 'utf8')); } catch (e) { feedbacks = []; }
 }
 function saveFeedbacks() { try { fs.writeFileSync(FEEDBACKS_FILE, JSON.stringify(feedbacks, null, 2)); } catch (e) {} }
-
-app.post('/api/feedback', async (req, res) => {
+app.post('/api/feedback', apiKeyCheck, async (req, res) => {
   try {
     const { content, contact, uid } = req.body;
     if (!content) return res.status(400).json(fail(400, '请输入反馈内容'));
@@ -762,16 +746,14 @@ app.post('/api/feedback', async (req, res) => {
     feedbacks.unshift(f);
     saveFeedbacks();
     res.json(ok({ id: f.id }));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 app.get('/admin/feedbacks', masterAuth, (req, res) => {
   const status = req.query.status;
   let list = feedbacks;
   if (status) list = list.filter(f => f.status === status);
   res.json(ok(list));
 });
-
 app.put('/admin/feedbacks/:id', masterAuth, (req, res) => {
   const f = feedbacks.find(x => x.id === req.params.id);
   if (!f) return res.status(404).json(fail(404));
@@ -787,7 +769,6 @@ let scheduledTasks = [];
 const TASKS_FILE = path.join(DATA_DIR, 'scheduled-tasks.json');
 function loadTasks() { try { if (fs.existsSync(TASKS_FILE)) scheduledTasks = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8')); } catch (e) { scheduledTasks = []; } }
 function saveTasks() { try { fs.writeFileSync(TASKS_FILE, JSON.stringify(scheduledTasks, null, 2)); } catch (e) {} }
-
 function executeTask(task) {
   console.log('[定时任务] 执行: ' + task.action + ' (ID: ' + task.id + ')');
   try {
@@ -797,7 +778,6 @@ function executeTask(task) {
     else if (task.action === 'docker_restart') execSync('docker restart tajiduo-server', { timeout: 5000 });
   } catch (e) { console.log('[定时任务] 执行失败: ' + e.message); }
 }
-
 setInterval(() => {
   const now = Date.now();
   scheduledTasks = scheduledTasks.filter(t => {
@@ -806,7 +786,6 @@ setInterval(() => {
   });
   saveTasks();
 }, 10000);
-
 app.post('/admin/schedule', masterAuth, (req, res) => {
   try {
     const { action, time, type } = req.body;
@@ -824,9 +803,8 @@ app.post('/admin/schedule', masterAuth, (req, res) => {
     const task = { id: uuidv4(), action, time, scheduledAt, type: type||'once', enabled: true, createdAt: new Date().toISOString() };
     scheduledTasks.push(task); saveTasks();
     res.json(ok(task));
-  } catch (e) { res.status(500).json(fail(500, e.message)); }
+  } catch (e) { console.error("[API_ERR]", e.message, e.stack); res.status(500).json(fail(500, e.message)); }
 });
-
 app.get('/admin/schedule', masterAuth, (req, res) => { res.json(ok(scheduledTasks)); });
 app.delete('/admin/schedule/:id', masterAuth, (req, res) => {
   const i = scheduledTasks.findIndex(t => t.id === req.params.id);
@@ -834,8 +812,6 @@ app.delete('/admin/schedule/:id', masterAuth, (req, res) => {
   scheduledTasks.splice(i,1); saveTasks();
   res.json(ok(null));
 });
-
-
 app.get('/api/server/info', (req, res) => {
   const os = require('os');
   res.json(ok({
@@ -846,12 +822,10 @@ app.get('/api/server/info', (req, res) => {
     online: true
   }));
 });
-
 // ===== IP 黑名单 =====
 const BLOCKED_FILE = path.join(DATA_DIR, 'blocked-ips.json');
 let blockedIps = new Set();
 let blockedCount = 0;
-
 function loadBlocked() {
   try {
     if (fs.existsSync(BLOCKED_FILE)) {
@@ -863,10 +837,8 @@ function loadBlocked() {
 function saveBlocked() {
   try { fs.writeFileSync(BLOCKED_FILE, JSON.stringify([...blockedIps], null, 2)); } catch (e) {}
 }
-
 // ===== 6. API 限流保护 =====
 const rateLimitMap = new Map();
-
 app.use((req, res, next) => {
   if (req.path === '/health' || req.path.startsWith('/admin')) return next();
   const ip = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -903,7 +875,6 @@ app.use((req, res, next) => {
 
 // ===== 7. API 统计埋点（管理后台能看到总调用量） =====
 const apiStats = { total: 0, byPath: {}, today: 0, todayDate: new Date().toDateString() };
-
 app.use((req, res, next) => {
   if (req.path.startsWith('/admin/logs')) return next();
   apiStats.total++;
@@ -914,26 +885,24 @@ app.use((req, res, next) => {
   apiStats.today++;
   next();
 });
-
 // ===== 8. 404 兜底 =====
 app.use((req, res) => {
   res.status(404).json(fail(404, '接口不存在: ' + req.method + ' ' + req.path));
 });
-
 // ===== 9. 全局错误处理 =====
 app.use((err, req, res, next) => {
   console.error('[ERROR]', err.message || err);
   res.status(500).json(fail(500, err.message || '服务器内部错误'));
 });
-
 load();
 loadPersistedNameMap();
 loadBlocked();
 loadNotices();
 loadFeedbacks();
+refreshAll();
+setInterval(refreshAll, 30 * 60 * 1000);
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Server running on port ' + PORT);
   setTimeout(updateNameMap, 5000);
   setInterval(updateNameMap, 120 * 60 * 1000);
   console.log('NameMap task started');
-});
